@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Home Security</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            background-color: white;
+            width: 100%;
+            max-width: 400px;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h2 {
+            margin: 0;
+            color: #333;
+        }
+
+        header p {
+            margin: 5px 0 0;
+            color: #777;
+            font-size: 0.9rem;
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #eee;
+            transition: 0.3s;
+        }
+
+        .card-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .label {
+            font-size: 0.8rem;
+            color: #888;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-top: 5px;
+            color: #333;
+        }
+
+        /* Warna Status */
+        .status-safe { color: #2ecc71; } /* Hijau */
+        .status-danger { color: #e74c3c; } /* Merah */
+
+        /* Tombol Toggle */
+        .toggle-btn {
+            background: #ddd;
+            border: none;
+            width: 60px;
+            height: 30px;
+            border-radius: 30px;
+            cursor: pointer;
+            position: relative;
+            transition: 0.3s;
+        }
+
+        .toggle-btn::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 26px;
+            height: 26px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .toggle-btn.active {
+            background: #3498db; /* Biru */
+        }
+        
+        .toggle-btn.active-alarm {
+            background: #ff9800; /* Orange untuk Alarm */
+        }
+
+        .toggle-btn.active::after {
+            left: 32px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container">
+        <header>
+            <h2>Rumah Aman 🏠</h2>
+            <p>IoT Security System</p>
+        </header>
+
+        <div class="card">
+            <div class="card-info">
+                <span class="label">Pintu Utama</span>
+                <span id="val-pintu" class="status-value status-safe">Memuat...</span>
+            </div>
+            <div style="font-size: 24px;">🚪</div>
+        </div>
+
+        <div class="card">
+            <div class="card-info">
+                <span class="label">Sensor Gerak</span>
+                <span id="val-gerak" class="status-value status-safe">Memuat...</span>
+            </div>
+            <div style="font-size: 24px;">🏃</div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px dashed #ddd; margin: 20px 0;">
+
+        <div class="card">
+            <div class="card-info">
+                <span class="label">Lampu Teras</span>
+                <span id="label-lampu" class="status-value">OFF</span>
+            </div>
+            <button id="btn-lampu" class="toggle-btn" onclick="toggleLampu()"></button>
+        </div>
+
+        <div class="card" style="border-color: #ffe0b2; background-color: #fff8e1;">
+            <div class="card-info">
+                <span class="label" style="color: #f57c00;">Mode Jaga (Alarm)</span>
+                <span id="label-jaga" class="status-value">NON-AKTIF</span>
+            </div>
+            <button id="btn-jaga" class="toggle-btn" onclick="toggleJaga()"></button>
+        </div>
+
+        <div class="footer">
+            Dikembangkan oleh Mahasiswa IoT<br>
+            Powered by Firebase & GitHub Pages
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
+        // ==========================================
+        // 1. TEMPEL FIREBASE CONFIG ANDA DI SINI
+        // (Ambil dari Project Settings -> General -> Web App)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "GANTI_DENGAN_API_KEY_ANDA",
+            authDomain: "GANTI_DENGAN_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://GANTI_DENGAN_LINK_DATABASE_ANDA.firebasedatabase.app",
+            projectId: "GANTI_DENGAN_PROJECT_ID",
+            storageBucket: "GANTI_DENGAN_PROJECT_ID.appspot.com",
+            messagingSenderId: "GANTI_SENDER_ID",
+            appId: "GANTI_APP_ID"
+        };
+        // ==========================================
+
+        // Inisialisasi Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        // Variabel Lokal
+        let currentLampu = false;
+        let currentJaga = false;
+
+        // --- MONITORING (BACA DATA) ---
+
+        // 1. Baca Pintu
+        db.ref('/SmartHome/Pintu').on('value', snap => {
+            const val = snap.val() || "Tidak ada data";
+            const el = document.getElementById('val-pintu');
+            el.innerText = val;
+            
+            // Ubah warna
+            if (val.includes("TERBUKA")) {
+                el.className = "status-value status-danger";
+            } else {
+                el.className = "status-value status-safe";
+            }
+        });
+
+        // 2. Baca Gerakan
+        db.ref('/SmartHome/Gerakan').on('value', snap => {
+            const val = snap.val() || "Tidak ada data";
+            const el = document.getElementById('val-gerak');
+            el.innerText = val;
+
+            if (val.includes("BAHAYA")) {
+                el.className = "status-value status-danger";
+            } else {
+                el.className = "status-value status-safe";
+            }
+        });
+
+        // 3. Baca Status Lampu (Sinkronisasi Tombol)
+        db.ref('/SmartHome/Lampu').on('value', snap => {
+            currentLampu = snap.val();
+            const btn = document.getElementById('btn-lampu');
+            const lbl = document.getElementById('label-lampu');
+
+            if(currentLampu) {
+                btn.classList.add('active');
+                lbl.innerText = "ON (Nyala)";
+            } else {
+                btn.classList.remove('active');
+                lbl.innerText = "OFF (Mati)";
+            }
+        });
+
+        // 4. Baca Status Mode Jaga
+        db.ref('/SmartHome/ModeJaga').on('value', snap => {
+            currentJaga = snap.val();
+            const btn = document.getElementById('btn-jaga');
+            const lbl = document.getElementById('label-jaga');
+
+            if(currentJaga) {
+                btn.classList.add('active-alarm');
+                lbl.innerText = "AKTIF (Waspada)";
+            } else {
+                btn.classList.remove('active-alarm'); // Hapus class active-alarm
+                btn.classList.remove('active'); // Pastikan class active juga hilang
+                lbl.innerText = "NON-AKTIF";
+            }
+        });
+
+
+        // --- CONTROLLING (KIRIM DATA) ---
+
+        function toggleLampu() {
+            db.ref('/SmartHome/Lampu').set(!currentLampu);
+        }
+
+        function toggleJaga() {
+            db.ref('/SmartHome/ModeJaga').set(!currentJaga);
+        }
+
+    </script>
+</body>
+</html>
